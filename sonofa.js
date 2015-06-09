@@ -27,7 +27,6 @@ function encodeToSONOFA(object) {
                 console.log("#object is null");
                 //fill in with 1's until the last slot is a 0
                 bundle += "11111110";
-                break;
             } else {
                 console.log("#object is an object");
                 bundle = "01";
@@ -62,7 +61,7 @@ function encodeToSONOFA(object) {
 function encodeInt(obj, bundle) {
     var binNum = obj.toString(2); //convert to binary stream
     //insert buffer
-    var stream = prependBuffer(binNum, bundle);
+    var stream = prependDataBuffer(binNum, bundle);
     bundle = appendSize(stream, bundle);
     console.log("#first byte finished");
     bundle = appendBody(stream, bundle);
@@ -78,7 +77,7 @@ function encodeDec(obj, bundle) {
     }
     var binNum = obj.toString(2); //convert to binary stream
     //insert buffer
-    var stream = prependBuffer(binNum, bundle);
+    var stream = prependDataBuffer(binNum, bundle);
     bundle = appendSize(stream, bundle);
     console.log("#first byte finished");
     bundle = exponentByte(exp, bundle);
@@ -92,7 +91,7 @@ function encodeObject(obj, bundle) {
     var elementCount = objSize(obj);
     var binNum = elementCount.toString(2);
     //insert buffer
-    var stream = prependBuffer(binNum, bundle);
+    var stream = prependDataBuffer(binNum, bundle);
     bundle = appendSize(stream, bundle);
     console.log("#first byte finished")
     bundle = appendBody(stream, bundle);
@@ -129,13 +128,13 @@ function coerceLength(str, length) {
 
 //adds the buffer to the start of the data to be sent
 //tested : WORKS
-function prependBuffer(data, bundle) {
-    console.log("##enters prependBuffer function");
-    if (bundle.length < 6) {
+function prependSizeBuffer(data, bundle) {
+        console.log("so we're headed to the size part");
         return findSizeBuffer(data.length, bundle) + data;
-    } else {
-        return findDataBuffer(data.length, bundle) + data;
-    }
+}
+
+function prependDataBuffer(data, bundle) {
+    return findDataBuffer(data.length, bundle) + data;
 }
 
 //find how many spaces we need before meaningful data to
@@ -154,15 +153,18 @@ function findSizeBuffer(dataSize, bundle) {
 }
 
 function findDataBuffer(dataSize, bundle) {
+    console.log("Prepending data buff. Data size is " + dataSize);
     var spaces = 7;
     while (dataSize > spaces) {
         spaces += 7;        //7 because the first bit in every byte is a continuation bit
     }
+    console.log(spaces + " spaces needed.");
     var bufferCount = spaces - dataSize;
     var buffer = "";
     for (var i = 0; i < bufferCount; i++) {
         buffer += "0";
     }
+    console.log("Buffer of size " + buffer.length);
     return buffer;
 }
 
@@ -170,8 +172,8 @@ function appendSize(stream, bundle) {
     //finish off the first byte with the size and add any more bytes we need to contain bin size number
     var firstByteSpaces = 8 - bundle.length;
     //binary of the above, with a size that will fit when we insert it below
-    var bytesNeeded = int(stream.length / 7) + 1;
-    var binSize = prependBuffer(bytesNeeded.toString(2), bundle);
+    var bytesNeeded = int(stream.length / 7);
+    var binSize = prependSizeBuffer(bytesNeeded.toString(2), bundle);
     console.log("The size of the data is " + bytesNeeded + " bytes long.");
     console.log("That size, in binary, is the following: " + binSize);
     if (bytesNeeded > (Math.pow(2, firstByteSpaces) - 1)) {
@@ -200,7 +202,7 @@ function appendSize(stream, bundle) {
 
 function exponentByte(exp, bundle) {
     var binExp = exp.toString(2);
-    binExp = prependBuffer(binExp, bundle);
+    binExp = prependSizeBuffer(binExp, bundle);
     bundle += "1" + binExp;
     return bundle;
 }
@@ -240,6 +242,12 @@ function appendTail(stream, bundle) {
         for (var bit = 1; bit < 8; bit++) {
             var spot = (((bytes - 1) * 8) - bytes) + bit;
             bundle += stream[spot];
+        }
+    } else {
+        bundle += "0";
+        console.log("#appending tailbyte");
+        for (var i = 0; i < 7; i++) {
+            bundle += stream[i];
         }
     }
     return bundle;
