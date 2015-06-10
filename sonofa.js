@@ -59,9 +59,8 @@ function encodeToSONOFA(object) {
 
 //tested : WORKS
 function encodeInt(obj, bundle) {
-    var binNum = obj.toString(2); //convert to binary stream
     //insert buffer
-    var stream = prependDataBuffer(binNum, bundle);
+    var stream = prependNumericBuffer(obj, bundle);
     bundle = appendSize(stream, bundle);
     console.log("#first byte finished");
     bundle = appendBody(stream, bundle);
@@ -75,9 +74,8 @@ function encodeDec(obj, bundle) {
         obj *= 10;
         exp++;
     }
-    var binNum = obj.toString(2); //convert to binary stream
     //insert buffer
-    var stream = prependDataBuffer(binNum, bundle);
+    var stream = prependNumericBuffer(obj, bundle);
     bundle = appendSize(stream, bundle);
     console.log("#first byte finished");
     bundle = exponentByte(exp, bundle);
@@ -133,8 +131,30 @@ function prependSizeBuffer(data, bundle) {
         return findSizeBuffer(data.length, bundle) + data;
 }
 
-function prependDataBuffer(data, bundle) {
-    return findDataBuffer(data.length, bundle) + data;
+function prependDataBuffer(data) {
+    return findDataBuffer(data.length) + data;
+}
+
+function prependNumericBuffer(data) {
+    var fullBinNum = encodeWithSign(data);
+    if (data < 0) {
+        data *= -1;
+    }
+    var shortBinNum = data.toString(2);
+    var binNumlength = shortBinNum.length;
+    var spaces = 7;
+    while (binNumlength >= spaces) {
+        spaces += 7;
+    }
+    var buffer = "";
+    for (var i = 0; i < spaces - binNumlength; i++) {
+        buffer += fullBinNum[0]; //left fill the sign in
+    }
+    var convertedData = "";
+    for (var j = 32 - binNumlength; j < 32; j++) {
+        convertedData += fullBinNum[j];
+    }
+    return buffer + convertedData;
 }
 
 //find how many spaces we need before meaningful data to
@@ -152,7 +172,7 @@ function findSizeBuffer(dataSize, bundle) {
     return buffer;
 }
 
-function findDataBuffer(dataSize, bundle) {
+function findDataBuffer(dataSize) {
     console.log("Prepending data buff. Data size is " + dataSize);
     var spaces = 7;
     while (dataSize > spaces) {
@@ -202,7 +222,7 @@ function appendSize(stream, bundle) {
 
 function exponentByte(exp, bundle) {
     var binExp = exp.toString(2);
-    binExp = prependSizeBuffer(binExp, bundle);
+    binExp = prependDataBuffer(binExp, bundle);
     bundle += "1" + binExp;
     return bundle;
 }
@@ -245,7 +265,7 @@ function appendTail(stream, bundle) {
         }
     } else {
         bundle += "0";
-        console.log("#appending tailbyte");
+        console.log("#appending tail byte");
         for (var i = 0; i < 7; i++) {
             bundle += stream[i];
         }
@@ -316,7 +336,7 @@ function toUTF8Array(str) {
     return utf8;
 }
 
-function createBinaryString (nMask) {
+function encodeWithSign (nMask) {
     // nMask must be between -2147483648 and 2147483647
     for (var nFlag = 0, nShifted = nMask, sMask = ""; nFlag < 32;
          nFlag++, sMask += String(nShifted >>> 31), nShifted <<= 1);
@@ -366,25 +386,31 @@ function Utf8ArrayToStr(array) {
 
 
 // INT TESTING : WORKS
-///**
+/**
 var actual0 = 0;
 console.log("0 edge case results in " + encodeToSONOFA(actual0));
 var number0 = 5;
 console.log("Value 5 results in " + encodeToSONOFA(number0));
-var number1 = 15;
+var number1 = -5;
+console.log("Value -5 results in " + encodeToSONOFA(number1));
+var number2 = 15;
 console.log("value 15 results in " + encodeToSONOFA(number1));
 var number3 = 2345;
 console.log("Medium numbers result in " + encodeToSONOFA(number3));
-var number2 = 320617503;
+var number4 = 320617503;
 console.log("Large numbers result in  " + encodeToSONOFA(number2));
-//**/
+**/
 
 // DECIMAL TESTING : WORKS
 ///**
 var dec1 = 1.5;
 console.log("1.5 results in " + encodeToSONOFA(dec1));
+var negDec1 = -1.5;
+console.log("-1.5 results in " + encodeToSONOFA(negDec1));
 var dec2 = 3.14;
 console.log("3.14 results in " + encodeToSONOFA(dec2));
+var negDec2 = -3.14;
+console.log("-2.14 results in " + encodeToSONOFA(negDec2));
 var dec3 = .8838928375;
 console.log(".8838928375 results in " + encodeToSONOFA(dec3));
 //**/
@@ -402,17 +428,17 @@ console.log("Object encodes to " + encodeToSONOFA(object));
 //**/
 
 //BOOLEAN TESTING : WORKS
-///**
+/**
 var bool = true;
 console.log("True encodes to " + encodeToSONOFA(bool));
 bool = false;
 console.log("False encodes to " + encodeToSONOFA(bool));
 bool = null;
 console.log("Null encodes to " + encodeToSONOFA(bool))
-//**/
+**/
 
 //STRING TESTING : IN PROGRESS
-///**
+/**
 var string1 = "a";
 var string2 = "abc";
 var string3 = "test string";
@@ -425,4 +451,10 @@ console.log("string3: " + string3 + " encodes to: " + encodeToSONOFA(string3));
 console.log("string4: " + string4 + " encodes to: " + encodeToSONOFA(string4));
 console.log("string5: " + string5 + " encodes to: " + encodeToSONOFA(string5));
 console.log("string6: " + string6 + " encodes to: " + encodeToSONOFA(string6));
+<<<<<<< HEAD
 //**/
+
+console.log("testy testy test");
+=======
+**/
+>>>>>>> test
