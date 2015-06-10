@@ -451,10 +451,4 @@ console.log("string3: " + string3 + " encodes to: " + encodeToSONOFA(string3));
 console.log("string4: " + string4 + " encodes to: " + encodeToSONOFA(string4));
 console.log("string5: " + string5 + " encodes to: " + encodeToSONOFA(string5));
 console.log("string6: " + string6 + " encodes to: " + encodeToSONOFA(string6));
-<<<<<<< HEAD
 //**/
-
-console.log("testy testy test");
-=======
-**/
->>>>>>> test
