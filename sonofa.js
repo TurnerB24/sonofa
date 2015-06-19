@@ -2,7 +2,15 @@
  * Created by Turner on 5/25/2015.
  */
 
-
+/**
+ * MASTER FUNCTION
+ *
+ * This is generally the only function actually called in usage. Using a case-break it organizes the incoming object
+ * into one of 4 data types before further categorizing or parsing the data.
+ *
+ * @param object - Data to be encoded for transmission
+ * @returns bundle - Encoded data packet for transmission. (Presently a string, will be int8Array when finished)
+ */
 function encodeToSONOFA(object) {
     console.log("#starting to encode an object");
     var bundle = "";
@@ -57,11 +65,17 @@ function encodeToSONOFA(object) {
     }
 }
 
+/**
+ * Used to encode integer numeric values.
+ *
+ * @param obj - Integer being encoded
+ * @param bundle - Data packet started in master function, data is appended here
+ * @returns bundle - Returns complete data packet
+ */
 //tested : WORKS
 function encodeInt(obj, bundle) {
-    var binNum = obj.toString(2); //convert to binary stream
     //insert buffer
-    var stream = prependDataBuffer(binNum, bundle);
+    var stream = prependNumericBuffer(obj, bundle);
     bundle = appendSize(stream, bundle);
     console.log("#first byte finished");
     bundle = appendBody(stream, bundle);
@@ -69,15 +83,22 @@ function encodeInt(obj, bundle) {
     return bundle;
 }
 
+/**
+ * Used to encode decimal numeric values.
+ *
+ * @param obj - Decimal being encoded
+ * @param bundle - Data packet started in master function, data is appended here
+ * @returns bundle - Returns complete data packet
+ */
 function encodeDec(obj, bundle) {
+    //find exponent required to eliminate all decimals
     var exp = 0;
     while (obj % 1 != 0) {
         obj *= 10;
         exp++;
     }
-    var binNum = obj.toString(2); //convert to binary stream
     //insert buffer
-    var stream = prependDataBuffer(binNum, bundle);
+    var stream = prependNumericBuffer(obj, bundle);
     bundle = appendSize(stream, bundle);
     console.log("#first byte finished");
     bundle = exponentByte(exp, bundle);
@@ -86,6 +107,14 @@ function encodeDec(obj, bundle) {
     return bundle;
 }
 
+/**
+ * Used to encode objects. Recursively encodes all properties within the object as well.
+ *
+ * @param obj - Object being encoded
+ * @param bundle - Data packet started in master function, data is appended here
+ * @returns bundle - Returns complete data packet. For this, packet contains object encoding, followed by
+ * all properties within, encoded properly and appended to be returned as one large block
+ */
 function encodeObject(obj, bundle) {
     //find out how many elements there are in the object or array
     var elementCount = objSize(obj);
@@ -100,6 +129,14 @@ function encodeObject(obj, bundle) {
 
 }
 
+/**
+ * Used to encode strings.
+ *
+ * @param obj - String to be encoded
+ * @param bundle - Data packet started in master function, data is appended here
+ * @returns bundle - Returns complete data packet. For this, packet contains string declaration and sizing in the
+ * primary byte(s), followed by one character of the string per byte.
+ */
 function encodeString(obj, bundle) {
     var stream = serializeString(obj);
     //encode size into the first byte
@@ -110,6 +147,14 @@ function encodeString(obj, bundle) {
     return bundle;
 }
 
+/**
+ * Converts each character of the string to the binary encoding. Then forces each encoding to occupy 7 bits. This is
+ * inherently safe and will not exclude data because we only use ASCII values, which occupy 7 or less significant bits.
+ *
+ * @param string - String to be serialized. Each character within the string is processed individually and appended
+ * onto the running stream of bits
+ * @returns binArray - Full stream of serialized, encoded charcters of the strings
+ */
 function serializeString(string) {
     var numArray = toUTF8Array(string);
     var binArray = "";
@@ -119,25 +164,79 @@ function serializeString(string) {
     return binArray;
 }
 
-function coerceLength(str, length) {
-    while(str.length < length) {
-        str = "0" + str;
+/**
+ * Forces an encoded character ot occupy the required bits.
+ *
+ * @param char - character to be encoded
+ * @param length - length required
+ * @returns char - returns the same chunk of data from before, now left-filled with 0's
+ */
+function coerceLength(char, length) {
+    while(char.length < length) {
+        char = "0" + char;
     }
-    return str;
+    return char;
 }
 
-//adds the buffer to the start of the data to be sent
+/**
+ * Adds the buffer to the encoded size of a data packet
+ *
+ * Example result : decimal number needs 16 bytes
+ * 00111000 | 00010000
+ *
+ * @param data - number of bytes needed formatted in binary, passed in as a string (e.g 5 bytes comes in as "101")
+ * @param bundle - Existing data packet to be transmitted. Used in the next function to see how many spaces exist for
+ * inserting encoded size into
+ * @returns {string} - returns the buffer followed by the size so that it evenly occupies bytes.
+ */
 //tested : WORKS
 function prependSizeBuffer(data, bundle) {
         console.log("so we're headed to the size part");
         return findSizeBuffer(data.length, bundle) + data;
 }
 
-function prependDataBuffer(data, bundle) {
-    return findDataBuffer(data.length, bundle) + data;
+/**
+ * Adds the buffer to the encoded content of the data packet
+ *
+ * Example result : value is 15 (1111)
+ * 00001111
+ *
+ * @param data - number of bytes needed formatted in binary, passed in as a string (e.g 5 bytes comes in as "101")
+ * @returns {string} - returns the buffer followed by the size so that it evenly occupies bytes.
+ */
+function prependDataBuffer(data) {
+    return findDataBuffer(data.length) + data;
 }
 
-//find how many spaces we need before meaningful data to
+function prependNumericBuffer(data) {
+    var fullBinNum = encodeWithSign(data);
+    if (data < 0) {
+        data *= -1;
+    }
+    var shortBinNum = data.toString(2);
+    var binNumlength = shortBinNum.length;
+    var spaces = 7;
+    while (binNumlength >= spaces) {
+        spaces += 7;
+    }
+    var buffer = "";
+    for (var i = 0; i < spaces - binNumlength; i++) {
+        buffer += fullBinNum[0]; //left fill the sign in
+    }
+    var convertedData = "";
+    for (var j = 32 - binNumlength; j < 32; j++) {
+        convertedData += fullBinNum[j];
+    }
+    return buffer + convertedData;
+}
+
+/**
+ * Finds how many bits we need to have before significant data so that the binary size evenly occupies bytes
+ *
+ * @param dataSize - The length of the binary number of bytes needed
+ * @param bundle - The existing packet of data
+ * @returns buffer - The string of 0's to be prepended to the binary size
+ */
 //tested : WORKS
 function findSizeBuffer(dataSize, bundle) {
     var spaces = (8 - bundle.length) - 1;
@@ -152,7 +251,13 @@ function findSizeBuffer(dataSize, bundle) {
     return buffer;
 }
 
-function findDataBuffer(dataSize, bundle) {
+/**
+ * Finds how many bits we need to have before significant data so that the content evenly occupies bytes
+ *
+ * @param dataSize - The size of the fully encoded data
+ * @returns buffer - The string of 0's to be prepended to the binary size
+ */
+function findDataBuffer(dataSize) {
     console.log("Prepending data buff. Data size is " + dataSize);
     var spaces = 7;
     while (dataSize > spaces) {
@@ -168,6 +273,14 @@ function findDataBuffer(dataSize, bundle) {
     return buffer;
 }
 
+/**
+ * Finds and appends the size of the content to the existing data packet
+ *
+ * @param stream - the content to be appended later, here used for sizing
+ * @param bundle - The existing data packet
+ * @returns bundle - The existing data packet, now with content size appended
+ */
+//tested : WORKS
 function appendSize(stream, bundle) {
     //finish off the first byte with the size and add any more bytes we need to contain bin size number
     var firstByteSpaces = 8 - bundle.length;
@@ -200,17 +313,28 @@ function appendSize(stream, bundle) {
     return bundle;
 }
 
+/**
+ * Encodes the bytes containing exponent value into decimal number encoding
+ *
+ * @param exp - The value of the exponent in base 10
+ * @param bundle - The existing data packet
+ * @returns bundle - The data packet now with the exponent byte appended
+ */
+//tested : WORKS
 function exponentByte(exp, bundle) {
     var binExp = exp.toString(2);
-    binExp = prependSizeBuffer(binExp, bundle);
+    binExp = prependDataBuffer(binExp, bundle);
     bundle += "1" + binExp;
     return bundle;
 }
-
-//creates and adds the body of the bundle
+/**
+ * Creates and adds the body of the bundle
+ *
+ * @param stream - Full data stream (buffer included) to be transmitted
+ * @param bundle - The packet we are writing to
+ * @returns {*}
+ */
 //tested : WORKS
-//stream - full data stream (buffer included) to be transmitted
-//bundle - the packet we are writing to
 function appendBody(stream, bundle) {
     //create new bytes of data
     var bytes = int(stream.length) / 7;  //find how many bytes we need
@@ -231,7 +355,13 @@ function appendBody(stream, bundle) {
     return bundle;
 }
 
-//creates the last byte for hte bundle
+/**
+ * Creates and appends the last byte of the data packet
+ *
+ * @param stream - The content to be appended
+ * @param bundle - The existing data packet
+ * @returns bundle - The existing data packet, now complete with the final byte
+ */
 //tested : WORKS
 function appendTail(stream, bundle) {
     var bytes = int(stream.length / 7);
@@ -245,7 +375,7 @@ function appendTail(stream, bundle) {
         }
     } else {
         bundle += "0";
-        console.log("#appending tailbyte");
+        console.log("#appending tail byte");
         for (var i = 0; i < 7; i++) {
             bundle += stream[i];
         }
@@ -253,14 +383,23 @@ function appendTail(stream, bundle) {
     return bundle;
 }
 
-//returns only the integer of num, always rounding toward 0
-//works with negatives too
+/**
+ * Returns only the integer of num, always rounding toward 0. Works with negatives
+ *
+ * @param num - Number to be rounded-down
+ * @returns {number} - The integer of the given number
+ */
 //tested : WORKS
 function int(num) {
     return num | 0;
 }
 
-//Finds the number of elements in an object or array
+/**
+ * Finds the number of elements in an object or array
+ *
+ * @param obj - Object we're finding the number of properties of
+ * @returns size - The number of properties the given object contains
+ */
 //tested : WORKS
 function objSize(obj) {
     var size = 0;
@@ -271,7 +410,11 @@ function objSize(obj) {
     return size;
 }
 
-//useful only for debugging
+/**
+ * Logs the current data packet to the console. Useful only for debugging.
+ *
+ * @param bundle - Data to be logged
+ */
 //tested : WORKS
 function logBundle(bundle) {
     var bitStream = "";
@@ -283,8 +426,14 @@ function logBundle(bundle) {
     }
     console.log("The bundle so far is " + bitStream);
 }
-
+/**
+ * Encodes a given string in UTF8 and stores the values in an array
+ *
+ * @param str - String to be encoded
+ * @returns utf8 - Array of values of UTF8 encoded characters
+ */
 // created by Joni, implied permission given as posted publicly : http://stackoverflow.com/a/18729931
+//tested : WORKS
 function toUTF8Array(str) {
     var utf8 = [];
     for (var i=0; i < str.length; i++) {
@@ -316,13 +465,26 @@ function toUTF8Array(str) {
     return utf8;
 }
 
-function createBinaryString (nMask) {
+/**
+ * Converts integer numbers in base 10 to base 2 as a signed 32 bit integer.
+ *
+ * @param nMask - Base 10 integer to be encoded
+ * @returns sMask - Base 2, 32 bit signed integer
+ */
+//tested : WORKS
+function encodeWithSign (nMask) {
     // nMask must be between -2147483648 and 2147483647
     for (var nFlag = 0, nShifted = nMask, sMask = ""; nFlag < 32;
          nFlag++, sMask += String(nShifted >>> 31), nShifted <<= 1);
     return sMask;
 }
 
+/**
+ * Converts an array of UTF8 encoded values back to characters to make up a string.
+ *
+ * @param array - The array of values containing UTF8 encoded characters
+ * @returns out - The string made up of the decoded UTF8 values
+ */
 //created by Albert, general permission given http://stackoverflow.com/a/22373061
 function Utf8ArrayToStr(array) {
     var out, i, len, c;
@@ -364,27 +526,57 @@ function Utf8ArrayToStr(array) {
     return out;
 }
 
+/**
+ * TESTING SECTION
+ * ===============
+ *
+ * Tests are divided by data type. Results are printed to console log, seen in browser.
+ *
+ * To run a test, comment out the block-commenting markers with //
+ * To not run a test, delete the // before the block-commenting markers
+ *
+ * Results will appear in the console as a string. The string will contain a (typically large) binary number. The
+ * number is set to fit evenly into octets, though no parser yet exists for automatically interpreting the data
+ * returned by the tests, so this must be done by hand.
+ *
+ * Verifying results can be difficult. I find it easiest to copy the results into a text-editor and start at the end
+ * of the file. Then, count backwards 7 bits using your arrow keys and erase the next bit, replacing it with something
+ * to mark the end of a byte, like  | , * or a space. Values then may be converted in the appropriate manner.
+ *
+ * For converting from binary to decimal values, I use this website
+ * http://www.mathsisfun.com/binary-decimal-hexadecimal-converter.html
+ * It can handle large numbers in both binary and decimal, and can be formatted in several set-ups, such as signed and
+ * unsigned.
+ *
+ * If you encounter any issues or have any questions not answered here, please reach me at turner@3lex.co
+ */
 
 // INT TESTING : WORKS
-///**
+/**
 var actual0 = 0;
 console.log("0 edge case results in " + encodeToSONOFA(actual0));
 var number0 = 5;
 console.log("Value 5 results in " + encodeToSONOFA(number0));
-var number1 = 15;
+var number1 = -5;
+console.log("Value -5 results in " + encodeToSONOFA(number1));
+var number2 = 15;
 console.log("value 15 results in " + encodeToSONOFA(number1));
 var number3 = 2345;
 console.log("Medium numbers result in " + encodeToSONOFA(number3));
-var number2 = 320617503;
+var number4 = 320617503;
 console.log("Large numbers result in  " + encodeToSONOFA(number2));
-//**/
+**/
 
 // DECIMAL TESTING : WORKS
 ///**
 var dec1 = 1.5;
 console.log("1.5 results in " + encodeToSONOFA(dec1));
+var negDec1 = -1.5;
+console.log("-1.5 results in " + encodeToSONOFA(negDec1));
 var dec2 = 3.14;
 console.log("3.14 results in " + encodeToSONOFA(dec2));
+var negDec2 = -3.14;
+console.log("-2.14 results in " + encodeToSONOFA(negDec2));
 var dec3 = .8838928375;
 console.log(".8838928375 results in " + encodeToSONOFA(dec3));
 //**/
@@ -402,17 +594,17 @@ console.log("Object encodes to " + encodeToSONOFA(object));
 //**/
 
 //BOOLEAN TESTING : WORKS
-///**
+/**
 var bool = true;
 console.log("True encodes to " + encodeToSONOFA(bool));
 bool = false;
 console.log("False encodes to " + encodeToSONOFA(bool));
 bool = null;
 console.log("Null encodes to " + encodeToSONOFA(bool))
-//**/
+**/
 
 //STRING TESTING : IN PROGRESS
-///**
+/**
 var string1 = "a";
 var string2 = "abc";
 var string3 = "test string";
