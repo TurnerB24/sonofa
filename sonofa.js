@@ -12,31 +12,33 @@
  * @returns bundle - Encoded data packet for transmission. (Presently a string, will be int8Array when finished)
  */
 function encodeToSONOFA(object) {
-    console.log("#starting to encode an object");
+    //console.log("#starting to encode an object");
     var bundle = "";
     var objectType = typeof object;
     switch (objectType) {
         case "string" :
-            console.log("#object is a string");
+            //console.log("#object is a string");
             bundle = "000";
-            return encodeString(object, bundle);
+            bundle = encodeString(object, bundle);
+            break;
         case "number" :                         //tested : WORKS
-            console.log("#object is a number");
+            //console.log("#object is a number");
             bundle = "001";
             if (object % 1 === 0) {
                 bundle += "0";
-                return encodeInt(object, bundle);
+                bundle = encodeInt(object, bundle);
             } else {
                 bundle += "1";
-                return encodeDec(object, bundle);
+                bundle = encodeDec(object, bundle);
             }
+            break;
         case "object" :
             if (object === null) {               //tested : WORKS
-                console.log("#object is null");
+                //console.log("#object is null");
                 //fill in with 1's until the last slot is a 0
                 bundle += "11111110";
             } else {
-                console.log("#object is an object");
+                //console.log("#object is an object");
                 bundle = "01";
                 if (object instanceof Array) {  //Arrays return typeof as an object, so we further classify them here
                     bundle += "1";
@@ -45,12 +47,12 @@ function encodeToSONOFA(object) {
                 }
                 bundle = encodeObject(object, bundle);
                 for (var prop in object) {
-                    bundle += "|" + encodeToSONOFA(object[prop]);
+                    bundle += encodeToSONOFA(object[prop]);
                 }
             }
-            return bundle;
+            break;
         case "boolean" :            //tested : WORKS
-            console.log("#object is a boolean");
+            //console.log("#object is a boolean");
             bundle = "111";
             if (object) {
                 //fill in with all 1's
@@ -59,10 +61,11 @@ function encodeToSONOFA(object) {
                 //fill in with 1's until the last slot is a 0
                 bundle += "11110";
             }
-            return bundle;
+           break;
         default :
-            console.log("#!!#The data entered is a " + object);
+            //console.log("#!!#The data entered is a " + object);
     }
+    return toInt8Array(bundle);
 }
 
 /**
@@ -77,7 +80,7 @@ function encodeInt(obj, bundle) {
     //insert buffer
     var stream = prependNumericBuffer(obj, bundle);
     bundle = appendSize(stream, bundle);
-    console.log("#first byte finished");
+    //console.log("#first byte finished");
     bundle = appendBody(stream, bundle);
     bundle = appendTail(stream, bundle);
     return bundle;
@@ -100,7 +103,7 @@ function encodeDec(obj, bundle) {
     //insert buffer
     var stream = prependNumericBuffer(obj, bundle);
     bundle = appendSize(stream, bundle);
-    console.log("#first byte finished");
+    //console.log("#first byte finished");
     bundle = exponentByte(exp, bundle);
     bundle = appendBody(stream, bundle);
     bundle = appendTail(stream, bundle);
@@ -120,9 +123,9 @@ function encodeObject(obj, bundle) {
     var elementCount = objSize(obj);
     var binNum = elementCount.toString(2);
     //insert buffer
-    var stream = prependDataBuffer(binNum, bundle);
+    var stream = prependDataBuffer(binNum);
     bundle = appendSize(stream, bundle);
-    console.log("#first byte finished")
+    //console.log("#first byte finished")
     bundle = appendBody(stream, bundle);
     bundle = appendTail(stream, bundle);
     return bundle;
@@ -191,7 +194,7 @@ function coerceLength(char, length) {
  */
 //tested : WORKS
 function prependSizeBuffer(data, bundle) {
-        console.log("so we're headed to the size part");
+        //console.log("so we're headed to the size part");
         return findSizeBuffer(data.length, bundle) + data;
 }
 
@@ -258,18 +261,18 @@ function findSizeBuffer(dataSize, bundle) {
  * @returns buffer - The string of 0's to be prepended to the binary size
  */
 function findDataBuffer(dataSize) {
-    console.log("Prepending data buff. Data size is " + dataSize);
+    //console.log("Prepending data buff. Data size is " + dataSize);
     var spaces = 7;
     while (dataSize > spaces) {
         spaces += 7;        //7 because the first bit in every byte is a continuation bit
     }
-    console.log(spaces + " spaces needed.");
+    //console.log(spaces + " spaces needed.");
     var bufferCount = spaces - dataSize;
     var buffer = "";
     for (var i = 0; i < bufferCount; i++) {
         buffer += "0";
     }
-    console.log("Buffer of size " + buffer.length);
+    //console.log("Buffer of size " + buffer.length);
     return buffer;
 }
 
@@ -287,8 +290,8 @@ function appendSize(stream, bundle) {
     //binary of the above, with a size that will fit when we insert it below
     var bytesNeeded = int(stream.length / 7);
     var binSize = prependSizeBuffer(bytesNeeded.toString(2), bundle);
-    console.log("The size of the data is " + bytesNeeded + " bytes long.");
-    console.log("That size, in binary, is the following: " + binSize);
+    //console.log("The size of the data is " + bytesNeeded + " bytes long.");
+    //console.log("That size, in binary, is the following: " + binSize);
     if (bytesNeeded > (Math.pow(2, firstByteSpaces) - 1)) {
         bundle += "1";
     } else {
@@ -341,7 +344,7 @@ function appendBody(stream, bundle) {
     //Fill all but the last new bytes
     //If there is only one byte to be filled/finished, this will exit doing nothing
     if (bytes > 1) {
-        console.log("#appending body bytes");
+        //console.log("#appending body bytes");
         for (var byte = 0; byte < (bytes - 1); byte++) {
             bundle += "1";              //Continuation bits for all but the last byte
             for (var place = 0; place < 7; place++) {
@@ -350,7 +353,7 @@ function appendBody(stream, bundle) {
             }
         }
     } else {
-        console.log("#packet not long enough to warrant appendBody function");
+        //console.log("#packet not long enough to warrant appendBody function");
     }
     return bundle;
 }
@@ -368,14 +371,14 @@ function appendTail(stream, bundle) {
     if (bytes > 0) {
         bundle += "0";                //Continuation bit set to false, this is last byte
         //Finish off the last bits of numerical data
-        console.log("#appending tail byte");
+        //console.log("#appending tail byte");
         for (var bit = 1; bit < 8; bit++) {
             var spot = (((bytes - 1) * 8) - bytes) + bit;
             bundle += stream[spot];
         }
     } else {
         bundle += "0";
-        console.log("#appending tail byte");
+        //console.log("#appending tail byte");
         for (var i = 0; i < 7; i++) {
             bundle += stream[i];
         }
@@ -406,7 +409,7 @@ function objSize(obj) {
     for (var prop in obj) {
         size++;
     }
-    console.log("#object has " + size + " elements");
+    //console.log("#object has " + size + " elements");
     return size;
 }
 
@@ -477,6 +480,25 @@ function encodeWithSign (nMask) {
     for (var nFlag = 0, nShifted = nMask, sMask = ""; nFlag < 32;
          nFlag++, sMask += String(nShifted >>> 31), nShifted <<= 1);
     return sMask;
+}
+
+/**
+ * Packages the bundle into a UInt8Array
+ *
+ * @param bundle - The data to be packaged
+ * @returns array - The data, packaged in the UInt8Array
+ */
+function toInt8Array (bundle) {
+    var bytes = bundle.length / 8;
+    var array = new Int8Array(bytes);
+    for (var i = 0; i < bytes; i++) {
+        var bin = "";
+        for (var j = 0; j < 8; j++) {
+            bin += bundle[(i * 8) + j];
+        }
+        array[i] = parseInt(bin, 2);
+    }
+    return array;
 }
 
 /**
@@ -570,15 +592,20 @@ console.log("Large numbers result in  " + encodeToSONOFA(number2));
 // DECIMAL TESTING : WORKS
 ///**
 var dec1 = 1.5;
-console.log("1.5 results in " + encodeToSONOFA(dec1));
+console.log("1.5 results in ");
+console.log(encodeToSONOFA(dec1));
 var negDec1 = -1.5;
-console.log("-1.5 results in " + encodeToSONOFA(negDec1));
+console.log("-1.5 results in ");
+console.log(encodeToSONOFA(negDec1));
 var dec2 = 3.14;
-console.log("3.14 results in " + encodeToSONOFA(dec2));
+console.log("3.14 results in ");
+console.log(encodeToSONOFA(dec2));
 var negDec2 = -3.14;
-console.log("-2.14 results in " + encodeToSONOFA(negDec2));
+console.log("-2.14 results in ");
+console.log(encodeToSONOFA(negDec2));
 var dec3 = .8838928375;
-console.log(".8838928375 results in " + encodeToSONOFA(dec3));
+console.log(".8838928375 results in ");
+console.log(encodeToSONOFA(dec3));
 //**/
 
 // OBJECT TESTING : WORKS
