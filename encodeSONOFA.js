@@ -65,6 +65,7 @@ function encodeToSONOFA(object) {
         default :
             //console.log("#!!#The data entered is a " + object);
     }
+    //logBundle(bundle);
     return toInt8Array(bundle);
 }
 
@@ -96,10 +97,13 @@ function encodeInt(obj, bundle) {
 function encodeDec(obj, bundle) {
     //find exponent required to eliminate all decimals
     var exp = 0;
-    while (obj % 1 != 0) {
-        obj *= 10;
+    do {
+        var newObj= obj * Math.pow(10, exp);
         exp++;
-    }
+    } while (newObj % 1 != 0);
+    exp--;
+    obj = newObj;
+    //console.log("Exponent is " + exp);
     //insert buffer
     var stream = prependNumericBuffer(obj, bundle);
     bundle = appendSize(stream, bundle);
@@ -129,7 +133,6 @@ function encodeObject(obj, bundle) {
     bundle = appendBody(stream, bundle);
     bundle = appendTail(stream, bundle);
     return bundle;
-
 }
 
 /**
@@ -147,6 +150,7 @@ function encodeString(obj, bundle) {
     //append stream
     bundle = appendBody(stream, bundle);
     bundle = appendTail(stream, bundle);
+    logBundle(bundle);
     return bundle;
 }
 
@@ -164,6 +168,7 @@ function serializeString(string) {
     for (var i = 0; i < numArray.length; i++) {
         binArray += coerceLength((numArray[i].toString(2)), 7);
     }
+    //console.log(binArray);
     return binArray;
 }
 
@@ -290,8 +295,8 @@ function appendSize(stream, bundle) {
     //binary of the above, with a size that will fit when we insert it below
     var bytesNeeded = int(stream.length / 7);
     var binSize = prependSizeBuffer(bytesNeeded.toString(2), bundle);
-    //console.log("The size of the data is " + bytesNeeded + " bytes long.");
-    //console.log("That size, in binary, is the following: " + binSize);
+    console.log("The size of the data is " + bytesNeeded + " bytes long.");
+    console.log("That size, in binary, is the following: " + binSize);
     if (bytesNeeded > (Math.pow(2, firstByteSpaces) - 1)) {
         bundle += "1";
     } else {
@@ -300,7 +305,7 @@ function appendSize(stream, bundle) {
     for (var i = 0; i < firstByteSpaces - 1; i++) {
         bundle += binSize[i];
     }
-    var spot = firstByteSpaces;
+    var spot = firstByteSpaces - 1;
     while (spot < binSize.length - 7) {
         bundle +="1";
         for (var j = 0; j < 7; j++) {
@@ -326,7 +331,7 @@ function appendSize(stream, bundle) {
 //tested : WORKS
 function exponentByte(exp, bundle) {
     var binExp = exp.toString(2);
-    binExp = prependDataBuffer(binExp, bundle);
+    binExp = prependDataBuffer(binExp);
     bundle += "1" + binExp;
     return bundle;
 }
@@ -502,53 +507,6 @@ function toInt8Array (bundle) {
 }
 
 /**
- * Converts an array of UTF8 encoded values back to characters to make up a string.
- *
- * @param array - The array of values containing UTF8 encoded characters
- * @returns out - The string made up of the decoded UTF8 values
- */
-//created by Albert, general permission given http://stackoverflow.com/a/22373061
-function Utf8ArrayToStr(array) {
-    var out, i, len, c;
-    var char2, char3;
-
-    out = "";
-    len = array.length;
-    i = 0;
-    while (i < len) {
-        c = array[i++];
-        switch (c >> 4) {
-            case 0:
-            case 1:
-            case 2:
-            case 3:
-            case 4:
-            case 5:
-            case 6:
-            case 7:
-                // 0xxxxxxx
-                out += String.fromCharCode(c);
-                break;
-            case 12:
-            case 13:
-                // 110x xxxx   10xx xxxx
-                char2 = array[i++];
-                out += String.fromCharCode(((c & 0x1F) << 6) | (char2 & 0x3F));
-                break;
-            case 14:
-                // 1110 xxxx  10xx xxxx  10xx xxxx
-                char2 = array[i++];
-                char3 = array[i++];
-                out += String.fromCharCode(((c & 0x0F) << 12) |
-                    ((char2 & 0x3F) << 6) |
-                    ((char3 & 0x3F) << 0));
-                break;
-        }
-    }
-    return out;
-}
-
-/**
  * TESTING SECTION
  * ===============
  *
@@ -562,7 +520,7 @@ function Utf8ArrayToStr(array) {
  * returned by the tests, so this must be done by hand.
  *
  * Verifying results can be difficult. I find it easiest to copy the results into a text-editor and start at the end
- * of the file. Then, count backwards 7 bits using your arrow keys and erase the next bit, replacing it with something
+ * of the string. Then, count backwards 7 bits using your arrow keys and erase the next bit, replacing it with something
  * to mark the end of a byte, like  | , * or a space. Values then may be converted in the appropriate manner.
  *
  * For converting from binary to decimal values, I use this website
@@ -576,21 +534,39 @@ function Utf8ArrayToStr(array) {
 // INT TESTING : WORKS
 /**
 var actual0 = 0;
-console.log("0 edge case results in " + encodeToSONOFA(actual0));
+console.log("0 edge case results in ");
+console.log(encodeToSONOFA(actual0));
 var number0 = 5;
-console.log("Value 5 results in " + encodeToSONOFA(number0));
+console.log("Value 5 results in ");
+console.log(encodeToSONOFA(number0));
 var number1 = -5;
-console.log("Value -5 results in " + encodeToSONOFA(number1));
+console.log("Value -5 results in ");
+console.log(encodeToSONOFA(number1));
 var number2 = 15;
-console.log("value 15 results in " + encodeToSONOFA(number1));
-var number3 = 2345;
-console.log("Medium numbers result in " + encodeToSONOFA(number3));
-var number4 = 320617503;
-console.log("Large numbers result in  " + encodeToSONOFA(number2));
+console.log("value 15 results in ");
+console.log(encodeToSONOFA(number2));
+var number3 = 127;
+console.log("value 127 results in ");
+console.log(encodeToSONOFA(number3));
+var number4 = -128;
+console.log("value -128 results in ");
+console.log(encodeToSONOFA(number4));
+var number5 = 2345;
+console.log("2345 results in ");
+console.log(encodeToSONOFA(number5));
+var number6 = 320617503;
+console.log("320617503 results in  ");
+console.log(encodeToSONOFA(number6));
+var number7 = 2147483647;
+console.log("2147483647 (max value) results in ");
+console.log(encodeToSONOFA(number7));
+var number8 = -2147483648;
+console.log("-2147483648 (min value) results in ");
+console.log(encodeToSONOFA(number8));
 **/
 
 // DECIMAL TESTING : WORKS
-///**
+/**
 var dec1 = 1.5;
 console.log("1.5 results in ");
 console.log(encodeToSONOFA(dec1));
@@ -601,15 +577,18 @@ var dec2 = 3.14;
 console.log("3.14 results in ");
 console.log(encodeToSONOFA(dec2));
 var negDec2 = -3.14;
-console.log("-2.14 results in ");
+console.log("-3.14 results in ");
 console.log(encodeToSONOFA(negDec2));
-var dec3 = .8838928375;
-console.log(".8838928375 results in ");
+var dec3 = .2147483647;
+console.log(".2147483647 results in ");
 console.log(encodeToSONOFA(dec3));
-//**/
+var negDec3 = -.2147483648;
+console.log("-.2147483648 results in ");
+console.log(encodeToSONOFA(negDec3));
+**/
 
 // OBJECT TESTING : WORKS
-///**
+/**
 var object = {
     prop1 : 5,
     prop2 : 1.5,
@@ -617,18 +596,22 @@ var object = {
     prop4 : .314,
     prop5 : "test1234"
 };
-console.log("Object encodes to " + encodeToSONOFA(object));
-//**/
+console.log("Object encodes to ");
+console.log(encodeToSONOFA(object));
+**/
 
 //BOOLEAN TESTING : WORKS
-/**
+///**
 var bool = true;
-console.log("True encodes to " + encodeToSONOFA(bool));
+console.log("True encodes to ");
+console.log(encodeToSONOFA(bool));
 bool = false;
-console.log("False encodes to " + encodeToSONOFA(bool));
+console.log("False encodes to ");
+console.log(encodeToSONOFA(bool));
 bool = null;
-console.log("Null encodes to " + encodeToSONOFA(bool))
-**/
+console.log("Null encodes to ");
+console.log(encodeToSONOFA(bool));
+//**/
 
 //STRING TESTING : IN PROGRESS
 /**
@@ -638,10 +621,16 @@ var string3 = "test string";
 var string4 = "How does the algorithm handle very long string? Hopefully fairly well!";
 var string5 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOP"; //42 chars
 var string6 = "xTZWykz0tnLmbHCewf0nZ0ecaf8uywvWSk55UP8sXDXNUOXxO5ECzU06My1s4FbOFT9cRlbPYzJDxMd7Og5pFYia486A8rx4XGsrvuclg5vwho0kxGxDZ4yfZBEKOd"; // 126 chars
-console.log("string1: " + string1 + " encodes to: " + encodeToSONOFA(string1));
-console.log("string2: " + string2 + " encodes to: " + encodeToSONOFA(string2));
-console.log("string3: " + string3 + " encodes to: " + encodeToSONOFA(string3));
-console.log("string4: " + string4 + " encodes to: " + encodeToSONOFA(string4));
-console.log("string5: " + string5 + " encodes to: " + encodeToSONOFA(string5));
-console.log("string6: " + string6 + " encodes to: " + encodeToSONOFA(string6));
-//**/
+console.log("string1: \'" + string1 + "\' is " + string1.length + " characters long and encodes to: ");
+console.log(encodeToSONOFA(string1));
+console.log("string2: \'" + string2 + "\' is " + string2.length + " characters long and encodes to: ");
+console.log(encodeToSONOFA(string2));
+console.log("string3: \'" + string3 + "\' is " + string3.length + " characters long and encodes to: ");
+console.log(encodeToSONOFA(string3));
+console.log("string4: \'" + string4 + "\' is " + string4.length + " characters long and encodes to: ");
+console.log(encodeToSONOFA(string4));
+console.log("string5: \'" + string5 + "\' is " + string5.length + " characters long and encodes to: ");
+console.log(encodeToSONOFA(string5));
+console.log("string6: \'" + string6 + "\' is " + string6.length + " characters long and encodes to: ");
+console.log(encodeToSONOFA(string6));
+**/
