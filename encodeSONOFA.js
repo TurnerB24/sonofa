@@ -11,7 +11,7 @@
  * @param object - Data to be encoded for transmission
  * @returns bundle - Encoded data packet for transmission. (Presently a string, will be int8Array when finished)
  */
-function encodeToSONOFA(object) {
+function encodeToSONOFA(object, delayArrayIntegration) {
     //console.log("#starting to encode an object");
     var bundle = "";
     var objectType = typeof object;
@@ -47,7 +47,7 @@ function encodeToSONOFA(object) {
                 }
                 bundle = encodeObject(object, bundle);
                 for (var prop in object) {
-                    bundle += encodeToSONOFA(object[prop]);
+                    bundle += encodeToSONOFA(object[prop], true);
                 }
             }
             break;
@@ -65,8 +65,12 @@ function encodeToSONOFA(object) {
         default :
             //console.log("#!!#The data entered is a " + object);
     }
-    //logBundle(bundle);
-    return toInt8Array(bundle);
+    logBundle(bundle);
+    if (delayArrayIntegration) {
+        return bundle;
+    } else {
+        return toInt8Array(bundle);
+    }
 }
 
 /**
@@ -566,7 +570,7 @@ console.log(encodeToSONOFA(number8));
 **/
 
 // DECIMAL TESTING : WORKS
-/**
+///**
 var dec1 = 1.5;
 console.log("1.5 results in ");
 console.log(encodeToSONOFA(dec1));
@@ -585,7 +589,7 @@ console.log(encodeToSONOFA(dec3));
 var negDec3 = -.2147483648;
 console.log("-.2147483648 results in ");
 console.log(encodeToSONOFA(negDec3));
-**/
+//**/
 
 // OBJECT TESTING : WORKS
 /**
@@ -600,8 +604,18 @@ console.log("Object encodes to ");
 console.log(encodeToSONOFA(object));
 **/
 
+// ARRAY TESTING
+/**
+var array0 = Array;
+array0 = [1, 2,];
+console.log(encodeToSONOFA(array0));
+var array1 = Array;
+array1 = ['a', 'abc', 'string', true, false];
+console.log(encodeToSONOFA(array1));
+**/
+
 //BOOLEAN TESTING : WORKS
-///**
+/**
 var bool = true;
 console.log("True encodes to ");
 console.log(encodeToSONOFA(bool));
@@ -611,7 +625,7 @@ console.log(encodeToSONOFA(bool));
 bool = null;
 console.log("Null encodes to ");
 console.log(encodeToSONOFA(bool));
-//**/
+**/
 
 //STRING TESTING : IN PROGRESS
 /**

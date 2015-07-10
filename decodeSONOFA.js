@@ -2,12 +2,23 @@
  * Created by Turner on 6/22/2015.
  */
 
-function decodeFromSONOFA (sonofaArray, obj) {
+//Global variables\
+var usedBits = 1;
+
+function decodeFromSONOFA (sonofaArray, obj, recursive) {
+    usedBits = 1;
     var target;
-    var arrayStr = toBinString(sonofaArray);
+    var arrayStr;
+    if (recursive == null || recursive == false) {
+        arrayStr = toBinString(sonofaArray);
+    } else {
+        arrayStr = sonofaArray;
+
+    }
+    console.log(arrayStr);
     var dataType = getDataType(arrayStr);
     var size = findSize(arrayStr, dataType.length);
-    var usable = reduceToSize(arrayStr, size * 8);
+    var usable = isolateChunk(arrayStr, usedBits , size * 8);
     console.log("Size is: " + size);
     switch (dataType) {
         case "0010" :
@@ -23,17 +34,18 @@ function decodeFromSONOFA (sonofaArray, obj) {
             break;
         case "010" :
             //things to do with objects
+            //This pretty much gets handled entirely differently
+            target = decodeObject(arrayStr);
             break;
         case "011" :
             //things to do with arrays
+            target = decodeArray(arrayStr);
+            console.log("Decoded array is: ");
+            console.log(target);
             break;
         case "111" :
             //things to do with booleans and null values
-            if (arrayStr[7] == "1") {
-                target = true;
-            }  else {
-                target = false;
-            }
+            target = (arrayStr[7] == "1");
             break;
         case "000" :
             //things to do with strings
@@ -84,6 +96,7 @@ function getDataType(string) {
     if (type == "001") {
         type += string[3];
     }
+    usedBits += type.length;
     return type;
 }
 
@@ -96,6 +109,7 @@ function getDataType(string) {
  */
 //tested : WORKS
 function findSize(stream, consumedBits, sizeBits) {
+    console.log(stream);
     if (stream.substring(0, 3) == "111") {
         return 0;
     }
@@ -106,15 +120,25 @@ function findSize(stream, consumedBits, sizeBits) {
         sizeBits += stream.substring(consumedBits + 1, 8);
     }
     if (stream[consumedBits] == "1") {
+        usedBits++;
         sizeBits = findSize(stream.substring(8,stream.length), 0, sizeBits)
     }
     if (consumedBits != 0) {
+        usedBits += sizeBits.length;
         return parseInt(sizeBits, 2);
     } else {
         return sizeBits;
     }
 }
 
+function isolateChunk(stream, used, needed) {
+    console.log("Used: " + used + " \tNeeded: " + needed);
+    console.log("Full Stream: " + stream);
+    var end = needed + used;
+    var derp = stream.substring(used, end);
+    console.log("Isolated Chunk : " + derp);
+    return derp;
+}
 /**
  * Converts integer numbers in base 10 to base 2 as a signed 32 bit integer.
  *
@@ -159,6 +183,30 @@ function decodeDecimal(stream, exp, size) {
     return decodeInteger(stream, size) / Math.pow(10, exp);
 }
 
+function decodeArray(fullStream) {
+    //console.log((fullStream.substring(8, 16)));
+    var size = parseInt((fullStream.substring(8, 16)), 2);
+    console.log("There are " +size + " elements");
+    if (size < 0) {
+        console.log("An error has occurred regrading scale of an array. Please contact the administrator of this" +
+            " system at: turner@3lex.com.");
+        return -1;
+    }
+    var contained = fullStream.substring(16, fullStream.length);
+    console.log("contained = " + contained);
+    var content = [];
+    for (var i = 0; i < size; i++) {
+        var eleSize = findSize(contained, getDataType(contained).length);
+        console.log("This element consumes " + eleSize + " bytes");
+        var curElement = contained.substring(0, eleSize * 8);
+        console.log("curElement = " + curElement);
+        content[i] = decodeFromSONOFA(contained, null, true);
+        console.log(content[i]);
+        contained = contained.substring((eleSize + 1) * 8, contained.length);
+    }
+    return content;
+}
+
 function decodeString(stream, size) {
     //console.log(stream);
     var usableArray = new Int8Array(size);
@@ -174,10 +222,10 @@ function decodeString(stream, size) {
 }
 
 function findExponent(arrayStr, size) {
-    console.log(arrayStr);
+    //console.log(arrayStr);
     var expStr = arrayStr.substring((arrayStr,length - (size - 1) * 8), arrayStr.length - ((size * 8)));
     expStr = reduceToSize(expStr, 7);
-    console.log(expStr);
+    //console.log(expStr);
     return parseInt(expStr, 2);
 }
 
@@ -288,36 +336,36 @@ function logBundle(bundle) {
 
 // INTEGER TESTING : WORKS
 /**
-var array0 = new Int8Array(2);
-array0 = [33, 0];
-decodeFromSONOFA(array0);
-var array1 = new Int8Array(2);
-array1 = [33, 5];
-decodeFromSONOFA(array1);
-var array2 = new Int8Array(2);
-array2 = [33, 123];
-decodeFromSONOFA(array2);
-var array3 = new Int8Array(2);
-array3 = [33, 15];
-decodeFromSONOFA(array3);
-var array4 = new Int8Array(3);
-array4 = [34, -128, 127];
-decodeFromSONOFA(array4);
-var array5 = new Int8Array(3);
-array5 = [34, -1, 0];
-decodeFromSONOFA(array5);
-var array6 = new Int8Array(3);
-array6 = [34, -110, 41];
-decodeFromSONOFA(array6);
-var array7 = new Int8Array(6);
-array7 = [37, -127, -104, -16, -8, 31];
-decodeFromSONOFA(array7);
-var array8 = new Int8Array(6);
-array8 = [37, -121, -1, -1, -1, 127];
-decodeFromSONOFA(array8);
-var array9 = new Int8Array(6);
-array9 = [37, -8, -128, -128, -128, 0];
-decodeFromSONOFA(array9);
+var int0 = new Int8Array(2);
+int0 = [33, 1];
+decodeFromSONOFA(int0);
+var int1 = new Int8Array(2);
+int1 = [33, 5];
+decodeFromSONOFA(int1);
+var int2 = new Int8Array(2);
+int2 = [33, 123];
+decodeFromSONOFA(int2);
+var int3 = new Int8Array(2);
+int3 = [33, 15];
+decodeFromSONOFA(int3);
+var int4 = new Int8Array(3);
+int4 = [34, -128, 127];
+decodeFromSONOFA(int4);
+var int5 = new Int8Array(3);
+int5 = [34, -1, 0];
+decodeFromSONOFA(int5);
+var int6 = new Int8Array(3);
+int6 = [34, -110, 41];
+decodeFromSONOFA(int6);
+var int7 = new Int8Array(6);
+int7 = [37, -127, -104, -16, -8, 31];
+decodeFromSONOFA(int7);
+var int8 = new Int8Array(6);
+int8 = [37, -121, -1, -1, -1, 127];
+decodeFromSONOFA(int8);
+var int9 = new Int8Array(6);
+int9 = [37, -8, -128, -128, -128, 0];
+decodeFromSONOFA(int9);
 **/
 
 // STRING TESTING : WORKS
@@ -357,9 +405,9 @@ decodeFromSONOFA(string5);
 console.log("xTZWykz0tnLmbHCewf0nZ0ecaf8uywvWSk55UP8sXDXNUOXxO5ECzU06My1s4FbOFT9cRlbPYzJDxMd7Og5pFYia486A8rx4XGsrvuclg5vwho0kxGxDZ4yfZBEKOd");
 console.log(decodeFromSONOFA(string5) == "xTZWykz0tnLmbHCewf0nZ0ecaf8uywvWSk55UP8sXDXNU" +
     "OXxO5ECzU06My1s4FbOFT9cRlbPYzJDxMd7Og5pFYia486A8rx4XGsrvuclg5vwho0kxGxDZ4yfZBEKOd");
- **/
+**/
 
-// DECIMAL TESTING : WORKS
+// DECIMAL TESTING : IN PROGRESS
 /**
 var dec0 = new Int8Array(3);
 dec0 = [49, -127, 15];
@@ -381,12 +429,22 @@ negDec2 = [53, -118, -8, -128, -128, -128, 0];
 decodeFromSONOFA(negDec2);
 **/
 
-// BOOLEAN TESTING
-///**
+// BOOLEAN TESTING : WORKS
+/**
 var bool0 = new Int8Array(1);
 bool0 = [-1];
 console.log(decodeFromSONOFA(bool0));
 var bool1 = new Int8Array(1);
 bool1 = [-2];
 console.log(decodeFromSONOFA(bool1));
+**/
+
+// ARRAY TESTING : IN PROGRESS
+///**
+var array0 = new Int8Array(6);
+array0 = [97, 2, 33, 1, 33, 2];
+console.log(decodeFromSONOFA(array0));
+var array1 = new Int8Array(17);
+array1 = [97, 5, 1, 97, 3, -31, -30, 99, 6, -13, -12, -14, -23, -18, 103, -1, -2];
+console.log(decodeFromSONOFA(array1));
 //**/
