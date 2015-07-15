@@ -47,6 +47,7 @@ function encodeToSONOFA(object, delayArrayIntegration) {
                 }
                 bundle = encodeObject(object, bundle);
                 for (var prop in object) {
+                    bundle += encodeToSONOFA(prop, true);
                     bundle += encodeToSONOFA(object[prop], true);
                 }
             }
@@ -65,7 +66,7 @@ function encodeToSONOFA(object, delayArrayIntegration) {
         default :
             //console.log("#!!#The data entered is a " + object);
     }
-    logBundle(bundle);
+    //logBundle(bundle);
     if (delayArrayIntegration) {
         return bundle;
     } else {
@@ -110,9 +111,9 @@ function encodeDec(obj, bundle) {
     //console.log("Exponent is " + exp);
     //insert buffer
     var stream = prependNumericBuffer(obj, bundle);
+    stream = exponentByte(exp, stream);
     bundle = appendSize(stream, bundle);
     //console.log("#first byte finished");
-    bundle = exponentByte(exp, bundle);
     bundle = appendBody(stream, bundle);
     bundle = appendTail(stream, bundle);
     return bundle;
@@ -154,7 +155,7 @@ function encodeString(obj, bundle) {
     //append stream
     bundle = appendBody(stream, bundle);
     bundle = appendTail(stream, bundle);
-    logBundle(bundle);
+    //logBundle(bundle);
     return bundle;
 }
 
@@ -299,8 +300,8 @@ function appendSize(stream, bundle) {
     //binary of the above, with a size that will fit when we insert it below
     var bytesNeeded = int(stream.length / 7);
     var binSize = prependSizeBuffer(bytesNeeded.toString(2), bundle);
-    console.log("The size of the data is " + bytesNeeded + " bytes long.");
-    console.log("That size, in binary, is the following: " + binSize);
+    //console.log("The size of the data is " + bytesNeeded + " bytes long.");
+    //console.log("That size, in binary, is the following: " + binSize);
     if (bytesNeeded > (Math.pow(2, firstByteSpaces) - 1)) {
         bundle += "1";
     } else {
@@ -333,11 +334,11 @@ function appendSize(stream, bundle) {
  * @returns bundle - The data packet now with the exponent byte appended
  */
 //tested : WORKS
-function exponentByte(exp, bundle) {
+function exponentByte(exp, stream) {
     var binExp = exp.toString(2);
     binExp = prependDataBuffer(binExp);
-    bundle += "1" + binExp;
-    return bundle;
+    stream = binExp + stream;
+    return stream;
 }
 /**
  * Creates and adds the body of the bundle
@@ -570,7 +571,7 @@ console.log(encodeToSONOFA(number8));
 **/
 
 // DECIMAL TESTING : WORKS
-///**
+/**
 var dec1 = 1.5;
 console.log("1.5 results in ");
 console.log(encodeToSONOFA(dec1));
@@ -589,20 +590,31 @@ console.log(encodeToSONOFA(dec3));
 var negDec3 = -.2147483648;
 console.log("-.2147483648 results in ");
 console.log(encodeToSONOFA(negDec3));
-//**/
+**/
 
 // OBJECT TESTING : WORKS
-/**
-var object = {
+///**
+var object0 = {
+    prop1 : 5,
+    prop2 : 'abcdefg',
+    prop3 : "-128",
+    prop4 : -128,
+    prop5 : [1, 2, 5]
+};
+console.log(object0);
+console.log("object0 encodes to ");
+console.log(encodeToSONOFA(object0));
+var object1 = {
     prop1 : 5,
     prop2 : 1.5,
     prop3 : 256,
     prop4 : .314,
     prop5 : "test1234"
 };
-console.log("Object encodes to ");
-console.log(encodeToSONOFA(object));
-**/
+console.log(object1);
+console.log("object1 encodes to ");
+console.log(encodeToSONOFA(object1));
+//**/
 
 // ARRAY TESTING
 /**
@@ -627,7 +639,7 @@ console.log("Null encodes to ");
 console.log(encodeToSONOFA(bool));
 **/
 
-//STRING TESTING : IN PROGRESS
+//STRING TESTING : WORKS
 /**
 var string1 = "a";
 var string2 = "abc";
