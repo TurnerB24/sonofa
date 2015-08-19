@@ -1,0 +1,32 @@
+body {
+    font-family: 'Helvetica Neue', 'Helvetica', sans-serif;
+}
+
+#console {
+    font-family: 'PT Mono', 'Courier New', monospace;
+    background-color: #fff;
+    color: #000;
+    max-width: 100%;
+    overflow-x: scroll;
+    overflow-y: scroll;
+}
+
+#console .console-log {
+    color: #777;
+}
+
+#console .console-error {
+    color: #933;
+}
+
+#console .console-warn {
+    color: #975;
+}
+
+#console .console-debug {
+    color: #555;
+}
+
+#console .console-info {
+    color: #579;
+}

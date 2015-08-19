@@ -147,17 +147,3 @@ Unused
 
 If ABC were 100, 101 or 110 - they are treated as reserved extensions
 to SONOFA that will be available in later version.
-
-Your Mission
-============
-
-Should you choose to accept, implement this in JavaScript:
-
-    function encodeToSONOFA(obj);
-
-which returns an Int8Array()
-
-    function decodeFromSONOFA(sonofaArray, obj);
-
-which if obj is not null, sets it to the value decoded from sonofaArray, or
-creates a new decoded object. Finally, the decoded object is returned.

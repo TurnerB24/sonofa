@@ -11,6 +11,13 @@
  * @param object - Data to be encoded for transmission
  * @returns bundle - Encoded data packet for transmission. (Presently a string, will be int8Array when finished)
  */
+
+    //The dictionary to store all of the frequently-used strings
+    //Holds max 128 strings
+var dictionary = {
+    lexicon : [],
+    lexispace : 0
+};
 function encodeToSONOFA(object, delayArrayIntegration) {
     //console.log("#starting to encode an object");
     var bundle = "";
@@ -149,7 +156,24 @@ function encodeObject(obj, bundle) {
  * primary byte(s), followed by one character of the string per byte.
  */
 function encodeString(obj, bundle) {
-    var stream = serializeString(obj);
+    var stream;
+    //Check that the string is not in lexicon
+    for (var i = 0; i < dictionary.lexispace; i++) {
+        //if it's in the dictionary do following
+        if (obj == dictionary.lexicon[i]) {
+            //set length to 0 and make the next byte the index in the dictionary
+            bundle = appendSize("", bundle);
+            //console.log("Dictionary bundle so far is " + bundle);
+            var index = prependNumericBuffer(i);
+            bundle = appendTail(index, bundle);
+            //console.log("Final dictionary bundle " + bundle);
+            return bundle;
+        }
+    }
+    //if not, add it and proceed with the existing algorithm
+    dictionary.lexicon[dictionary.lexispace] = obj;
+    dictionary.lexispace++;
+    stream = serializeString(obj);
     //encode size into the first byte
     bundle = appendSize(stream, bundle);
     //append stream
@@ -165,7 +189,7 @@ function encodeString(obj, bundle) {
  *
  * @param string - String to be serialized. Each character within the string is processed individually and appended
  * onto the running stream of bits
- * @returns binArray - Full stream of serialized, encoded charcters of the strings
+ * @returns binArray - Full stream of serialized, encoded characters of the strings
  */
 function serializeString(string) {
     var numArray = toUTF8Array(string);
@@ -330,7 +354,7 @@ function appendSize(stream, bundle) {
  * Encodes the bytes containing exponent value into decimal number encoding
  *
  * @param exp - The value of the exponent in base 10
- * @param bundle - The existing data packet
+ * @param stream - The existing data packet
  * @returns bundle - The data packet now with the exponent byte appended
  */
 //tested : WORKS
@@ -510,153 +534,3 @@ function toInt8Array (bundle) {
     }
     return array;
 }
-
-/**
- * TESTING SECTION
- * ===============
- *
- * Tests are divided by data type. Results are printed to console log, seen in browser.
- *
- * To run a test, comment out the block-commenting markers with //
- * To not run a test, delete the // before the block-commenting markers
- *
- * Results will appear in the console as a string. The string will contain a (typically large) binary number. The
- * number is set to fit evenly into octets, though no parser yet exists for automatically interpreting the data
- * returned by the tests, so this must be done by hand.
- *
- * Verifying results can be difficult. I find it easiest to copy the results into a text-editor and start at the end
- * of the string. Then, count backwards 7 bits using your arrow keys and erase the next bit, replacing it with something
- * to mark the end of a byte, like  | , * or a space. Values then may be converted in the appropriate manner.
- *
- * For converting from binary to decimal values, I use this website
- * http://www.mathsisfun.com/binary-decimal-hexadecimal-converter.html
- * It can handle large numbers in both binary and decimal, and can be formatted in several set-ups, such as signed and
- * unsigned.
- *
- * If you encounter any issues or have any questions not answered here, please reach me at turner@3lex.co
- */
-
-// INT TESTING : WORKS
-/**
-var actual0 = 0;
-console.log("0 edge case results in ");
-console.log(encodeToSONOFA(actual0));
-var number0 = 5;
-console.log("Value 5 results in ");
-console.log(encodeToSONOFA(number0));
-var number1 = -5;
-console.log("Value -5 results in ");
-console.log(encodeToSONOFA(number1));
-var number2 = 15;
-console.log("value 15 results in ");
-console.log(encodeToSONOFA(number2));
-var number3 = 127;
-console.log("value 127 results in ");
-console.log(encodeToSONOFA(number3));
-var number4 = -128;
-console.log("value -128 results in ");
-console.log(encodeToSONOFA(number4));
-var number5 = 2345;
-console.log("2345 results in ");
-console.log(encodeToSONOFA(number5));
-var number6 = 320617503;
-console.log("320617503 results in  ");
-console.log(encodeToSONOFA(number6));
-var number7 = 2147483647;
-console.log("2147483647 (max value) results in ");
-console.log(encodeToSONOFA(number7));
-var number8 = -2147483648;
-console.log("-2147483648 (min value) results in ");
-console.log(encodeToSONOFA(number8));
-**/
-
-// DECIMAL TESTING : WORKS
-/**
-var dec1 = 1.5;
-console.log("1.5 results in ");
-console.log(encodeToSONOFA(dec1));
-var negDec1 = -1.5;
-console.log("-1.5 results in ");
-console.log(encodeToSONOFA(negDec1));
-var dec2 = 3.14;
-console.log("3.14 results in ");
-console.log(encodeToSONOFA(dec2));
-var negDec2 = -3.14;
-console.log("-3.14 results in ");
-console.log(encodeToSONOFA(negDec2));
-var dec3 = .2147483647;
-console.log(".2147483647 results in ");
-console.log(encodeToSONOFA(dec3));
-var negDec3 = -.2147483648;
-console.log("-.2147483648 results in ");
-console.log(encodeToSONOFA(negDec3));
-**/
-
-// OBJECT TESTING : WORKS
-///**
-var object0 = {
-    prop1 : 5,
-    prop2 : 'abcdefg',
-    prop3 : "-128",
-    prop4 : -128,
-    prop5 : [1, 2, 5]
-};
-console.log(object0);
-console.log("object0 encodes to ");
-console.log(encodeToSONOFA(object0));
-var object1 = {
-    prop1 : 5,
-    prop2 : 1.5,
-    prop3 : 256,
-    prop4 : .314,
-    prop5 : "test1234"
-};
-console.log(object1);
-console.log("object1 encodes to ");
-console.log(encodeToSONOFA(object1));
-//**/
-
-// ARRAY TESTING
-/**
-var array0 = Array;
-array0 = [1, 2,];
-console.log(encodeToSONOFA(array0));
-var array1 = Array;
-array1 = ['a', 'abc', 'string', true, false];
-console.log(encodeToSONOFA(array1));
-**/
-
-//BOOLEAN TESTING : WORKS
-/**
-var bool = true;
-console.log("True encodes to ");
-console.log(encodeToSONOFA(bool));
-bool = false;
-console.log("False encodes to ");
-console.log(encodeToSONOFA(bool));
-bool = null;
-console.log("Null encodes to ");
-console.log(encodeToSONOFA(bool));
-**/
-
-//STRING TESTING : WORKS
-/**
-var string1 = "a";
-var string2 = "abc";
-var string3 = "test string";
-var string4 = "How does the algorithm handle very long string? Hopefully fairly well!";
-var string5 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOP"; //42 chars
-var string6 = "xTZWykz0tnLmbHCewf0nZ0ecaf8uywvWSk55UP8sXDXNUOXxO5ECzU06My1s4FbOFT9cRlbPYzJDxMd7Og5pFYia486A8rx4XGsrvuclg5vwho0kxGxDZ4yfZBEKOd"; // 126 chars
-console.log("string1: \'" + string1 + "\' is " + string1.length + " characters long and encodes to: ");
-console.log(encodeToSONOFA(string1));
-console.log("string2: \'" + string2 + "\' is " + string2.length + " characters long and encodes to: ");
-console.log(encodeToSONOFA(string2));
-console.log("string3: \'" + string3 + "\' is " + string3.length + " characters long and encodes to: ");
-console.log(encodeToSONOFA(string3));
-console.log("string4: \'" + string4 + "\' is " + string4.length + " characters long and encodes to: ");
-console.log(encodeToSONOFA(string4));
-console.log("string5: \'" + string5 + "\' is " + string5.length + " characters long and encodes to: ");
-console.log(encodeToSONOFA(string5));
-console.log("string6: \'" + string6 + "\' is " + string6.length + " characters long and encodes to: ");
-console.log(encodeToSONOFA(string6));
-**/
